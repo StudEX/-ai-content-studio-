@@ -1,5 +1,16 @@
 node_modules
-# Keep environment variables out of version control
 .env
-
+.env.local
+.env.save
 /src/generated/prisma
+.next/
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/naledi.db
+frontend/node_modules/
+frontend/dist/
+dev.db
+prisma/dev.db
+*.pyc
+.DS_Store
