@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  hashedPassword String
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  campaigns Campaign[]
+  contents  Content[]
+  audiences Audience[]
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("draft") // draft, active, paused, completed
+  type        String   @default("email") // email, social, sms
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contents Content[]
+
+  @@index([userId])
+}
+
+model Content {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  type      String   @default("copy") // copy, email, social, sms
+  tone      String?  // professional, casual, persuasive, informative
+  prompt    String?  // original prompt used to generate
+  status    String   @default("draft") // draft, approved, published
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([campaignId])
+}
+
+model Audience {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  criteria    String?  // JSON string of segmentation criteria
+  size        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
