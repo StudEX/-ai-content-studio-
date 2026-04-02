@@ -11,3 +11,5 @@ openai==1.58.1
 apscheduler==3.11.0
 websockets==14.1
 python-multipart==0.0.20
+firecrawl-py==1.15.0
+playwright==1.52.0

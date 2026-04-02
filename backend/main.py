@@ -18,6 +18,8 @@ from services.ollama_service import OllamaService
 from services.context_compressor import ContextCompressor
 from services.ralf_gium_scheduler import RALFGIUMScheduler
 from services.supabase_service import SupabaseService
+from services.firecrawl_service import FirecrawlService
+from services.playwright_service import PlaywrightService
 from agents import (
     ContentAgent, CampaignAgent, AudienceAgent, SEOAgent,
     SocialAgent, EmailAgent, AnalyticsAgent, BrandAgent, ResearchAgent,
@@ -48,6 +50,8 @@ ollama = OllamaService(base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:1
 compressor = ContextCompressor()
 scheduler = RALFGIUMScheduler()
 supabase = SupabaseService()
+firecrawl = FirecrawlService()
+playwright = PlaywrightService()
 
 # ---------------------------------------------------------------------------
 # Agent registry
@@ -87,6 +91,14 @@ class VideoGenRequest(BaseModel):
     prompt: str
     duration: int = 5
     aspect_ratio: str = "16:9"
+
+class ScrapeRequest(BaseModel):
+    url: str
+    mode: str = "scrape"  # scrape | crawl | screenshot | prices | social
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 5
 
 # ---------------------------------------------------------------------------
 # Health & info
@@ -269,6 +281,40 @@ async def calculate_tokens(req: TokenCalcRequest):
         "monthly_cost_zar": round(daily_cost_usd * 30 * USD_TO_ZAR, 2),
         "total_cost_zar": round(total_cost_usd * USD_TO_ZAR, 2),
         "local": pricing["local"],
+    }
+
+# ---------------------------------------------------------------------------
+# Firecrawl — web scraping & intelligence
+# ---------------------------------------------------------------------------
+@app.post("/api/scrape")
+async def scrape(req: ScrapeRequest):
+    """Unified scrape endpoint — Firecrawl for static, Playwright for JS-rendered."""
+    if req.mode == "scrape":
+        result = await firecrawl.scrape_url(req.url)
+        if result.get("error") and "not configured" in result["error"]:
+            result = await playwright.scrape_rendered(req.url)
+        return result
+    elif req.mode == "crawl":
+        return await firecrawl.crawl_site(req.url)
+    elif req.mode == "screenshot":
+        return await playwright.screenshot(req.url)
+    elif req.mode == "prices":
+        return await playwright.extract_prices(req.url)
+    elif req.mode == "social":
+        return await playwright.monitor_social(req.url)
+    else:
+        raise HTTPException(400, f"Unknown scrape mode: {req.mode}")
+
+@app.post("/api/search")
+async def search_web(req: SearchRequest):
+    """Search the web via Firecrawl."""
+    return await firecrawl.search(req.query, req.limit)
+
+@app.get("/api/scrape/status")
+async def scrape_status():
+    return {
+        "firecrawl": "configured" if firecrawl.configured else "needs FIRECRAWL_API_KEY",
+        "playwright": "ready",
     }
 
 # ---------------------------------------------------------------------------
