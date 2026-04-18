@@ -1,0 +1,63 @@
+{
+  "app_name": "Naledi Nexus",
+  "app_id": "A0AU6AZV60G",
+  "workspace": "etherdoge",
+  "bot_name": "naledi_nexus",
+  "bot_id": "B0ATA60BECE",
+  "created": "2026-04-16",
+  "scopes": [
+    "app_mentions:read",
+    "assistant:write",
+    "bookmarks:read",
+    "bookmarks:write",
+    "calls:read",
+    "calls:write",
+    "channels:history",
+    "channels:manage",
+    "channels:read",
+    "channels:write.invites",
+    "channels:write.topic",
+    "chat:write",
+    "chat:write.customize",
+    "commands",
+    "groups:history",
+    "im:history",
+    "im:read",
+    "mpim:history",
+    "search:read.private",
+    "users:read",
+    "users:read.email",
+    "workflow.steps:execute",
+    "workflows.templates:write"
+  ],
+  "slash_commands": [
+    {
+      "command": "/customer-lookup",
+      "description": "Look up a customer by email or ID"
+    },
+    {
+      "command": "/escalate",
+      "description": "Escalate an issue to human agent"
+    },
+    {
+      "command": "/daily-report",
+      "description": "Get daily customer service report"
+    }
+  ],
+  "features": {
+    "ai_assistant": true,
+    "customer_service": true,
+    "message_history": true,
+    "channel_management": true,
+    "workflows": true
+  },
+  "webhooks": {
+    "events_endpoint": "/api/slack/events",
+    "request_url": "https://your-domain.com/api/slack/events"
+  },
+  "env_required": [
+    "SLACK_BOT_TOKEN",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_APP_ID"
+  ]
+}
