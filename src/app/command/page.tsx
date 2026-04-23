@@ -5,9 +5,8 @@ import Image from 'next/image'
 
 // ── Types ────────────────────────────────────────────────────────────────
 interface Agent {
-  id: string; name: string; role: string; icon: string
+  id: string; name: string; description: string
   status: 'idle' | 'working' | 'error' | 'offline'
-  currentTask?: string; progress?: number
 }
 
 interface KanbanCard {
@@ -16,51 +15,43 @@ interface KanbanCard {
   column: string; elapsed?: string; type?: string
 }
 
-interface MemoryEntry {
-  id: string; task: string; date: string; duration: string
-  category: string; status: string; tokens: number
+interface HealthData {
+  ollama: string; claude: string; higgsfield: string
+  supabase: string; agents_loaded: number; time_sast: string
 }
 
-// ── Data ─────────────────────────────────────────────────────────────────
-const AGENTS: Agent[] = [
-  { id: 'research', name: 'ResearchAgent', role: 'Perplexity/Gemini', icon: '🔍', status: 'working', currentTask: 'Competitor analysis', progress: 72 },
-  { id: 'prompt', name: 'PromptAgent', role: 'Claude Prompts', icon: '✍️', status: 'idle' },
-  { id: 'video', name: 'VideoAgent', role: 'Higgsfield Video', icon: '🎬', status: 'working', currentTask: 'Wagyu reel gen', progress: 45 },
-  { id: 'caption', name: 'CaptionAgent', role: 'Copy Generation', icon: '💬', status: 'idle' },
-  { id: 'distro', name: 'DistributionAgent', role: 'Social Posting', icon: '📡', status: 'idle' },
-  { id: 'analytics', name: 'AnalyticsAgent', role: 'Meta/Google Ads', icon: '📊', status: 'working', currentTask: 'Daily pull', progress: 88 },
-  { id: 'memory', name: 'MemoryAgent', role: 'ChromaDB/RAG', icon: '🧠', status: 'idle' },
-  { id: 'trend', name: 'TrendAgent', role: 'Model Monitor', icon: '📈', status: 'idle' },
-  { id: 'training', name: 'TrainingAgent', role: 'NotebookLM Sync', icon: '🎓', status: 'offline' },
-]
+// ── API helper ───────────────────────────────────────────────────────────
+const api = {
+  get: async (endpoint: string) => {
+    const res = await fetch(`/api/platform?endpoint=${encodeURIComponent(endpoint)}`)
+    return res.json()
+  },
+  post: async (endpoint: string, body: Record<string, unknown> = {}) => {
+    const res = await fetch(`/api/platform?endpoint=${encodeURIComponent(endpoint)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  },
+  patch: async (endpoint: string, body: Record<string, unknown>) => {
+    const res = await fetch(`/api/platform?endpoint=${encodeURIComponent(endpoint)}&method=PATCH`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    return res.json()
+  },
+}
 
+// ── Agent icons by key ───────────────────────────────────────────────────
+const AGENT_ICONS: Record<string, string> = {
+  content: '✍️', campaign: '🚀', audience: '👥', seo: '🔍',
+  social: '📡', email: '✉️', analytics: '📊', brand: '🛡️', research: '🔬',
+}
+
+// ── Priority / status colours ────────────────────────────────────────────
+const priorityColor: Record<string, string> = { High: 'bg-red-500', Medium: 'bg-amber-500', Low: 'bg-green-500' }
+const statusDot: Record<string, string> = { idle: 'bg-gray-500', working: 'bg-green-400 animate-pulse', error: 'bg-red-500', offline: 'bg-gray-700' }
 const KANBAN_COLUMNS = ['ASSIGNED', 'BUSY', 'APPROVAL', 'DONE']
-
-const initialCards: KanbanCard[] = [
-  { id: '1', title: 'Easter campaign brief', agent: 'ResearchAgent', priority: 'High', column: 'BUSY', elapsed: '14:33', type: 'Research + Dev' },
-  { id: '2', title: 'Generate 5 video prompts', agent: 'PromptAgent', priority: 'High', column: 'APPROVAL', type: 'Coding + Programing' },
-  { id: '3', title: 'Wagyu hero reel', agent: 'VideoAgent', priority: 'Medium', column: 'BUSY', elapsed: '08:21', type: 'Marketing + Content' },
-  { id: '4', title: 'Easter captions x5', agent: 'CaptionAgent', priority: 'Medium', column: 'DONE', type: 'Marketing + Content' },
-  { id: '5', title: 'Pull Meta insights', agent: 'AnalyticsAgent', priority: 'Low', column: 'ASSIGNED', type: 'Planning' },
-  { id: '6', title: 'Index vault notes', agent: 'MemoryAgent', priority: 'Low', column: 'ASSIGNED', type: 'Research + Dev' },
-  { id: '7', title: 'Deploy landing page v2', agent: 'DistributionAgent', priority: 'High', column: 'ASSIGNED', type: 'Product Launch' },
-  { id: '8', title: 'A/B test hook variants', agent: 'PromptAgent', priority: 'Medium', column: 'APPROVAL', type: 'Marketing + Content' },
-]
-
-const MEMORY_LOG: MemoryEntry[] = [
-  { id: '1', task: 'WhatsApp bridge + gateway setup', date: '2026-04-02', duration: '45 min', category: 'setup', status: 'done', tokens: 0 },
-  { id: '2', task: 'Ollama 3-tier routing system', date: '2026-04-02', duration: '15 min', category: 'feature', status: 'done', tokens: 0 },
-  { id: '3', task: 'Killed OpenClaw services', date: '2026-04-02', duration: '20 min', category: 'fix', status: 'done', tokens: 0 },
-  { id: '4', task: 'Connected Gmail, GitHub, Vercel', date: '2026-04-02', duration: '10 min', category: 'setup', status: 'done', tokens: 0 },
-  { id: '5', task: 'Fish Audio TTS provider', date: '2026-04-02', duration: '8 min', category: 'feature', status: 'done', tokens: 0 },
-  { id: '6', task: 'MiMo API key added', date: '2026-04-02', duration: '2 min', category: 'setup', status: 'done', tokens: 0 },
-  { id: '7', task: 'Cyberpunk dashboard build', date: '2026-04-02', duration: 'in progress', category: 'feature', status: 'in-progress', tokens: 0 },
-]
-
-// ── Priority / Category colors ───────────────────────────────────────────
-const priorityColor = { High: 'bg-red-500', Medium: 'bg-amber-500', Low: 'bg-green-500' }
-const categoryColor: Record<string,string> = { setup: 'text-blue-400', fix: 'text-red-400', feature: 'text-green-400', optimization: 'text-orange-400', research: 'text-purple-400' }
-const statusDot = { idle: 'bg-gray-500', working: 'bg-green-400 animate-pulse', error: 'bg-red-500', offline: 'bg-gray-700' }
 
 // ── Gate Component ───────────────────────────────────────────────────────
 function Gate({ onAuth }: { onAuth: () => void }) {
@@ -97,26 +88,65 @@ function Gate({ onAuth }: { onAuth: () => void }) {
   )
 }
 
+// ── New Task Modal ───────────────────────────────────────────────────────
+function NewTaskModal({ agents, onClose, onCreated }: {
+  agents: Agent[]; onClose: () => void; onCreated: (card: KanbanCard) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [agent, setAgent] = useState('')
+  const [priority, setPriority] = useState('Medium')
+
+  const submit = async () => {
+    if (!title.trim()) return
+    const result = await api.post('/api/tasks', { title, agent: agent || undefined, priority })
+    onCreated({ id: result.id, title, agent, priority: priority as KanbanCard['priority'], column: 'ASSIGNED' })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 font-mono" onClick={onClose}>
+      <div className="bg-obsidian-100 border border-gray-700 rounded-lg p-6 w-96" onClick={e => e.stopPropagation()}>
+        <h3 className="text-ember font-bold mb-4">NEW TASK</h3>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title"
+          className="w-full bg-obsidian border border-gray-700 text-white px-3 py-2 rounded mb-3 focus:border-ember focus:outline-none" />
+        <select value={agent} onChange={e => setAgent(e.target.value)}
+          className="w-full bg-obsidian border border-gray-700 text-white px-3 py-2 rounded mb-3 focus:border-ember focus:outline-none">
+          <option value="">No agent assigned</option>
+          {agents.map(a => <option key={a.id} value={a.name}>{AGENT_ICONS[a.id] || '🤖'} {a.name}</option>)}
+        </select>
+        <select value={priority} onChange={e => setPriority(e.target.value)}
+          className="w-full bg-obsidian border border-gray-700 text-white px-3 py-2 rounded mb-4 focus:border-ember focus:outline-none">
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <div className="flex gap-2">
+          <button onClick={submit} className="flex-1 bg-ember hover:bg-ember-600 text-white py-2 rounded font-bold">CREATE</button>
+          <button onClick={onClose} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Dashboard ───────────────────────────────────────────────────────
 export default function CommandCentre() {
   const [authed, setAuthed] = useState(false)
   const [checking, setChecking] = useState(true)
-  const [cards, setCards] = useState(initialCards)
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [cards, setCards] = useState<KanbanCard[]>([])
+  const [health, setHealth] = useState<HealthData | null>(null)
+  const [backendOnline, setBackendOnline] = useState(true)
   const [dragId, setDragId] = useState<string | null>(null)
   const [clock, setClock] = useState('')
   const [noHands, setNoHands] = useState(false)
+  const [showNewTask, setShowNewTask] = useState(false)
+  const [commandInput, setCommandInput] = useState('')
+  const [commandResult, setCommandResult] = useState<string | null>(null)
+  const [commandLoading, setCommandLoading] = useState(false)
 
-  // Check auth cookie on mount
+  // Check auth on mount
   useEffect(() => {
-    fetch('/api/gate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: '' }) })
-      .then(() => {
-        // Check if cookie exists by trying a simple check
-        if (document.cookie.includes('naledi-auth') || localStorage.getItem('naledi-auth')) {
-          setAuthed(true)
-        }
-      })
-      .finally(() => setChecking(false))
-    // Also check localStorage fallback
     if (localStorage.getItem('naledi-auth') === 'granted') setAuthed(true)
     setChecking(false)
   }, [])
@@ -132,23 +162,74 @@ export default function CommandCentre() {
     return () => clearInterval(i)
   }, [])
 
+  // Fetch live data from backend
+  const fetchData = useCallback(async () => {
+    try {
+      const [agentRes, taskRes, healthRes] = await Promise.all([
+        api.get('/api/agents'),
+        api.get('/api/tasks'),
+        api.get('/api/health'),
+      ])
+
+      if (!agentRes.offline) {
+        setBackendOnline(true)
+        if (agentRes.agents) {
+          setAgents(agentRes.agents.map((a: Record<string, string>) => ({
+            id: a.id, name: a.name, description: a.description, status: a.status || 'idle',
+          })))
+        }
+        if (taskRes.tasks) {
+          setCards(taskRes.tasks.map((t: Record<string, string>) => ({
+            id: t.id, title: t.title, agent: t.agent, priority: t.priority || 'Medium',
+            column: t.column || 'ASSIGNED', type: t.type, elapsed: t.elapsed,
+          })))
+        }
+        if (healthRes.status) setHealth(healthRes as HealthData)
+      } else {
+        setBackendOnline(false)
+      }
+    } catch {
+      setBackendOnline(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authed) return
+    fetchData()
+    const i = setInterval(fetchData, 10000) // refresh every 10s
+    return () => clearInterval(i)
+  }, [authed, fetchData])
+
   const handleAuth = () => {
     setAuthed(true)
     localStorage.setItem('naledi-auth', 'granted')
   }
 
-  // Drag and drop
+  // Drag and drop — update backend
   const onDragStart = (id: string) => setDragId(id)
-  const onDrop = useCallback((col: string) => {
+  const onDrop = useCallback(async (col: string) => {
     if (!dragId) return
     setCards(prev => prev.map(c => c.id === dragId ? { ...c, column: col } : c))
+    await api.patch(`/api/tasks/${dragId}`, { column: col })
     setDragId(null)
   }, [dragId])
+
+  // Command shell
+  const runCommand = async () => {
+    if (!commandInput.trim()) return
+    setCommandLoading(true)
+    setCommandResult(null)
+    const res = await api.post('/api/command', { command: commandInput })
+    setCommandResult(res.result?.output || res.error || JSON.stringify(res))
+    setCommandLoading(false)
+    setCommandInput('')
+    fetchData() // refresh agents after command
+  }
 
   if (checking) return <div className="min-h-screen bg-obsidian" />
   if (!authed) return <Gate onAuth={handleAuth} />
 
-  const busyAgents = AGENTS.filter(a => a.status === 'working').length
+  const busyAgents = agents.filter(a => a.status === 'working').length
   const approvalCount = cards.filter(c => c.column === 'APPROVAL').length
 
   return (
@@ -163,6 +244,7 @@ export default function CommandCentre() {
               NALEDI NEXUS
             </h1>
             <p className="text-gray-400 text-xs mt-1">COMMAND CENTRE v1.0 &mdash; STUDEX GLOBAL MARKETS</p>
+            {!backendOnline && <p className="text-red-500 text-xs mt-1 animate-pulse">BACKEND OFFLINE &mdash; showing cached data</p>}
           </div>
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
@@ -180,13 +262,36 @@ export default function CommandCentre() {
       </div>
 
       <div className="px-4 pb-8 space-y-4">
+        {/* ── COMMAND INPUT ──────────────────────────────────────────── */}
+        <div className="bg-obsidian-100 border border-gray-800 rounded p-3">
+          <div className="flex gap-2">
+            <span className="text-ember font-bold mt-2">$</span>
+            <input
+              value={commandInput} onChange={e => setCommandInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && runCommand()}
+              placeholder="Type a command... (e.g. 'write a blog post about biltong' or 'research competitors')"
+              className="flex-1 bg-transparent text-white focus:outline-none text-sm"
+              disabled={commandLoading}
+            />
+            <button onClick={runCommand} disabled={commandLoading}
+              className="bg-ember hover:bg-ember-600 text-white px-4 py-1 rounded text-xs font-bold disabled:opacity-50">
+              {commandLoading ? 'RUNNING...' : 'EXECUTE'}
+            </button>
+          </div>
+          {commandResult && (
+            <div className="mt-3 p-3 bg-obsidian border border-gray-700 rounded text-xs text-gray-300 max-h-48 overflow-y-auto whitespace-pre-wrap">
+              {commandResult}
+            </div>
+          )}
+        </div>
+
         {/* ── METRICS ROW ──────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: 'ACTIVE TASKS', value: cards.filter(c => c.column !== 'DONE').length, color: 'text-ember' },
-            { label: 'AGENTS BUSY', value: `${busyAgents}/9`, color: 'text-terminal' },
+            { label: 'AGENTS LOADED', value: `${agents.length > 0 ? busyAgents : '?'}/${agents.length || '?'}`, color: 'text-terminal' },
             { label: 'AWAITING APPROVAL', value: approvalCount, color: 'text-signal' },
-            { label: 'TOKEN BURN TODAY', value: 'R0.00', color: 'text-green-400' },
+            { label: 'BACKEND', value: backendOnline ? 'ONLINE' : 'OFFLINE', color: backendOnline ? 'text-terminal' : 'text-red-500' },
           ].map(m => (
             <div key={m.label} className="bg-obsidian-100 border border-gray-800 rounded p-3">
               <div className="text-gray-500 text-xs">{m.label}</div>
@@ -195,13 +300,13 @@ export default function CommandCentre() {
           ))}
         </div>
 
-        {/* ── SOCIAL METRICS ───────────────────────────────────────── */}
+        {/* ── SOCIAL METRICS (static until APIs connected) ─────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { platform: 'INSTAGRAM', reach: '2.4k', engage: '4.2%', icon: '📸' },
-            { platform: 'FACEBOOK', reach: '1.8k', engage: '3.1%', icon: '📘' },
-            { platform: 'WHATSAPP', reach: '847 msgs', engage: '94% read', icon: '💬' },
-            { platform: 'GOOGLE ADS', reach: 'R1,240', engage: '3.8x ROAS', icon: '📢' },
+            { platform: 'INSTAGRAM', reach: '—', engage: 'Connect in Settings', icon: '📸' },
+            { platform: 'FACEBOOK', reach: '—', engage: 'Connect in Settings', icon: '📘' },
+            { platform: 'WHATSAPP', reach: '—', engage: 'Connect in Settings', icon: '💬' },
+            { platform: 'GOOGLE ADS', reach: '—', engage: 'Connect in Settings', icon: '📢' },
           ].map(s => (
             <div key={s.platform} className="bg-obsidian-100 border border-gray-800 rounded p-3">
               <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
@@ -213,33 +318,35 @@ export default function CommandCentre() {
           ))}
         </div>
 
-        {/* ── AGENT GRID ───────────────────────────────────────────── */}
+        {/* ── AGENT GRID (live from backend) ───────────────────────── */}
         <div>
-          <h2 className="text-xs text-gray-500 mb-2 tracking-widest">AGENT SWARM &mdash; {busyAgents} ACTIVE</h2>
+          <h2 className="text-xs text-gray-500 mb-2 tracking-widest">
+            AGENT SWARM &mdash; {agents.length > 0 ? `${busyAgents} ACTIVE` : 'LOADING...'}
+          </h2>
           <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-9 gap-2">
-            {AGENTS.map(a => (
+            {(agents.length > 0 ? agents : Array.from({ length: 9 }, (_, i) => ({
+              id: String(i), name: '...', description: 'Loading', status: 'offline' as const,
+            }))).map(a => (
               <div key={a.id} className="bg-obsidian-100 border border-gray-800 rounded p-2 hover:border-ember/30 transition-colors">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <div className={`w-2 h-2 rounded-full ${statusDot[a.status]}`} />
-                  <span className="text-xs font-bold truncate">{a.icon} {a.name.replace('Agent','')}</span>
+                  <div className={`w-2 h-2 rounded-full ${statusDot[a.status] || statusDot.offline}`} />
+                  <span className="text-xs font-bold truncate">{AGENT_ICONS[a.id] || '🤖'} {a.name.replace('Agent', '')}</span>
                 </div>
-                <div className="text-[10px] text-gray-500 truncate">{a.role}</div>
-                {a.currentTask && (
-                  <>
-                    <div className="text-[10px] text-gray-400 mt-1 truncate">{a.currentTask}</div>
-                    <div className="w-full bg-gray-800 rounded-full h-1 mt-1">
-                      <div className="bg-ember h-1 rounded-full transition-all" style={{ width: `${a.progress || 0}%` }} />
-                    </div>
-                  </>
-                )}
+                <div className="text-[10px] text-gray-500 truncate">{a.description}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── KANBAN BOARD ─────────────────────────────────────────── */}
+        {/* ── KANBAN BOARD (live from backend) ─────────────────────── */}
         <div>
-          <h2 className="text-xs text-gray-500 mb-2 tracking-widest">TASK BOARD &mdash; DRAG TO MOVE</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs text-gray-500 tracking-widest">TASK BOARD &mdash; DRAG TO MOVE</h2>
+            <button onClick={() => setShowNewTask(true)}
+              className="text-xs bg-ember/20 text-ember px-3 py-1 rounded hover:bg-ember/40 font-bold">
+              + NEW TASK
+            </button>
+          </div>
           <div className="grid grid-cols-4 gap-2 min-h-[200px]">
             {KANBAN_COLUMNS.map(col => (
               <div
@@ -261,7 +368,7 @@ export default function CommandCentre() {
                       className="bg-obsidian border border-gray-700 rounded p-2 cursor-grab active:cursor-grabbing hover:border-ember/40 transition-colors"
                     >
                       <div className="flex items-center gap-1.5 mb-1">
-                        <div className={`w-1.5 h-1.5 rounded-full ${priorityColor[card.priority]}`} />
+                        <div className={`w-1.5 h-1.5 rounded-full ${priorityColor[card.priority] || 'bg-gray-500'}`} />
                         <span className="text-xs font-bold text-white truncate">{card.title}</span>
                       </div>
                       {card.agent && <div className="text-[10px] text-gray-500">{card.agent}</div>}
@@ -270,7 +377,10 @@ export default function CommandCentre() {
                         {card.elapsed && <span className="text-[10px] text-ember font-mono">{card.elapsed}</span>}
                         {col === 'APPROVAL' && (
                           <button
-                            onClick={() => setCards(prev => prev.map(c => c.id === card.id ? { ...c, column: 'DONE' } : c))}
+                            onClick={async () => {
+                              setCards(prev => prev.map(c => c.id === card.id ? { ...c, column: 'DONE' } : c))
+                              await api.patch(`/api/tasks/${card.id}`, { column: 'DONE' })
+                            }}
                             className="text-[9px] bg-ember/20 text-ember px-1.5 rounded hover:bg-ember/40"
                           >
                             APPROVE
@@ -279,55 +389,23 @@ export default function CommandCentre() {
                       </div>
                     </div>
                   ))}
+                  {cards.filter(c => c.column === col).length === 0 && (
+                    <div className="text-[10px] text-gray-700 text-center py-4">Drop tasks here</div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── MODEL STATUS ─────────────────────────────────────────── */}
+        {/* ── HEALTH / MODEL STATUS (live) ─────────────────────────── */}
         <div className="bg-obsidian-100 border border-gray-800 rounded p-3 flex flex-wrap items-center gap-4 text-xs">
-          <div><span className="text-gray-500">MODEL:</span> <span className="text-terminal font-bold">qwen2.5:1.5b</span></div>
-          <div><span className="text-gray-500">SPEED:</span> <span className="text-white">~35 t/s</span></div>
-          <div><span className="text-gray-500">CONTEXT:</span> <span className="text-white">4096 / 32768</span></div>
-          <div><span className="text-gray-500">RAM:</span> <span className="text-white">986 MB</span></div>
+          <div><span className="text-gray-500">CLAUDE:</span> <span className={health?.claude === 'configured' ? 'text-terminal font-bold' : 'text-red-400'}>{health?.claude || '...'}</span></div>
+          <div><span className="text-gray-500">OLLAMA:</span> <span className={health?.ollama === 'connected' ? 'text-terminal font-bold' : 'text-gray-400'}>{health?.ollama || '...'}</span></div>
+          <div><span className="text-gray-500">HIGGSFIELD:</span> <span className="text-gray-400">{health?.higgsfield || '...'}</span></div>
+          <div><span className="text-gray-500">SUPABASE:</span> <span className="text-gray-400">{health?.supabase || '...'}</span></div>
+          <div><span className="text-gray-500">AGENTS:</span> <span className="text-white">{health?.agents_loaded || '...'}</span></div>
           <div><span className="text-gray-500">COST:</span> <span className="text-terminal font-bold">R0.00 (local)</span></div>
-          <div><span className="text-gray-500">PROVIDER:</span> <span className="text-white">Ollama @ localhost:11434</span></div>
-        </div>
-
-        {/* ── MEMORY LOG ───────────────────────────────────────────── */}
-        <div>
-          <h2 className="text-xs text-gray-500 mb-2 tracking-widest">MEMORY LOG</h2>
-          <div className="bg-obsidian-100 border border-gray-800 rounded overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="text-left p-2">DATE</th>
-                  <th className="text-left p-2">TASK</th>
-                  <th className="text-left p-2">CATEGORY</th>
-                  <th className="text-left p-2">STATUS</th>
-                  <th className="text-left p-2">DURATION</th>
-                  <th className="text-left p-2">TOKENS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MEMORY_LOG.map(m => (
-                  <tr key={m.id} className="border-b border-gray-800/50 hover:bg-obsidian-50/50">
-                    <td className="p-2 text-gray-500">{m.date}</td>
-                    <td className="p-2 text-white">{m.task}</td>
-                    <td className={`p-2 ${categoryColor[m.category] || 'text-gray-400'}`}>{m.category}</td>
-                    <td className="p-2">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${m.status === 'done' ? 'bg-green-900/40 text-green-400' : 'bg-amber-900/40 text-amber-400'}`}>
-                        {m.status}
-                      </span>
-                    </td>
-                    <td className="p-2 text-gray-400">{m.duration}</td>
-                    <td className="p-2 text-gray-500">{m.tokens}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
 
         {/* ── TREND FEED + RALF LOOP ──────────────────────────────── */}
@@ -352,9 +430,9 @@ export default function CommandCentre() {
             <h3 className="text-xs text-gray-500 mb-2 tracking-widest">RALF LOOP STATUS</h3>
             <div className="space-y-1.5 text-xs">
               {[
-                { agent: 'Research', status: 'done', time: '14 min ago', icon: '✓' },
-                { agent: 'Prompts', status: 'done', time: '8 min ago', icon: '✓' },
-                { agent: 'Video', status: 'running', time: '14 min', icon: '⟳' },
+                { agent: 'Research', status: 'scheduled', time: '00:00', icon: '⏰' },
+                { agent: 'Prompts', status: 'waiting', time: '', icon: '○' },
+                { agent: 'Video', status: 'waiting', time: '', icon: '○' },
                 { agent: 'Caption', status: 'waiting', time: '', icon: '○' },
                 { agent: 'Distribute', status: 'waiting', time: '', icon: '○' },
                 { agent: 'Analytics', status: 'scheduled', time: '06:00', icon: '⏰' },
@@ -376,6 +454,9 @@ export default function CommandCentre() {
           NALEDI NEXUS v1.0 &mdash; 96% LOCAL / 4% CLOUD &mdash; POWERED BY OLLAMA + CLAUDE
         </div>
       </div>
+
+      {/* ── NEW TASK MODAL ─────────────────────────────────────────── */}
+      {showNewTask && <NewTaskModal agents={agents} onClose={() => setShowNewTask(false)} onCreated={card => setCards(prev => [...prev, card])} />}
     </div>
   )
 }

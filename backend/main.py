@@ -6,6 +6,7 @@ All times SAST. All costs ZAR.
 
 import os
 import json
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -20,6 +21,8 @@ from services.ralf_gium_scheduler import RALFGIUMScheduler
 from services.supabase_service import SupabaseService
 from services.firecrawl_service import FirecrawlService
 from services.playwright_service import PlaywrightService
+from services.claude_service import ClaudeService
+from services.higgsfield_service import HiggsFieldService
 from agents import (
     ContentAgent, CampaignAgent, AudienceAgent, SEOAgent,
     SocialAgent, EmailAgent, AnalyticsAgent, BrandAgent, ResearchAgent,
@@ -52,6 +55,8 @@ scheduler = RALFGIUMScheduler()
 supabase = SupabaseService()
 firecrawl = FirecrawlService()
 playwright = PlaywrightService()
+claude_ai = ClaudeService()
+higgsfield = HiggsFieldService()
 
 # ---------------------------------------------------------------------------
 # Agent registry
@@ -100,6 +105,37 @@ class SearchRequest(BaseModel):
     query: str
     limit: int = 5
 
+class TaskBoardItem(BaseModel):
+    title: str
+    agent: Optional[str] = None
+    priority: str = "Medium"  # High | Medium | Low
+    column: str = "ASSIGNED"  # ASSIGNED | BUSY | APPROVAL | DONE
+    type: Optional[str] = None
+
+class TaskBoardUpdate(BaseModel):
+    title: Optional[str] = None
+    agent: Optional[str] = None
+    priority: Optional[str] = None
+    column: Optional[str] = None
+    type: Optional[str] = None
+
+# ---------------------------------------------------------------------------
+# In-memory task board (persists while server runs)
+# ---------------------------------------------------------------------------
+TASK_BOARD: dict[str, dict] = {}
+
+def _new_task(title: str, agent: str | None = None, priority: str = "Medium",
+              column: str = "ASSIGNED", task_type: str | None = None) -> dict:
+    task_id = uuid.uuid4().hex[:8]
+    now = datetime.now(SAST)
+    task = {
+        "id": task_id, "title": title, "agent": agent,
+        "priority": priority, "column": column, "type": task_type,
+        "created": now.isoformat(), "elapsed": None,
+    }
+    TASK_BOARD[task_id] = task
+    return task
+
 # ---------------------------------------------------------------------------
 # Health & info
 # ---------------------------------------------------------------------------
@@ -116,10 +152,15 @@ async def root():
 async def health():
     ollama_ok = await ollama.health()
     supa_health = await supabase.health()
+    higgs_health = await higgsfield.health()
     return {
         "status": "operational",
         "ollama": "connected" if ollama_ok else "offline",
+        "claude": "configured" if claude_ai.configured else "needs ANTHROPIC_API_KEY",
+        "higgsfield": higgs_health.get("status", "unknown"),
         "supabase": supa_health.get("status", "unknown"),
+        "firecrawl": "configured" if firecrawl.configured else "needs key",
+        "playwright": "ready",
         "agents_loaded": len(AGENTS),
         "time_sast": datetime.now(SAST).isoformat(),
     }
@@ -233,6 +274,22 @@ async def generate_video(req: VideoGenRequest):
         return {"status": "queued", "model": req.model, "response": resp.json()}
 
 # ---------------------------------------------------------------------------
+# Higgsfield — AI video generation
+# ---------------------------------------------------------------------------
+@app.post("/api/video/higgsfield/generate")
+async def higgsfield_generate_video(req: VideoGenRequest):
+    result = await higgsfield.generate_video(req.prompt, req.duration, req.aspect_ratio)
+    return {"source": "higgsfield", "result": result}
+
+@app.get("/api/video/higgsfield/{video_id}")
+async def higgsfield_video_status(video_id: str):
+    return await higgsfield.get_video_status(video_id)
+
+@app.get("/api/video/higgsfield")
+async def higgsfield_list_videos():
+    return await higgsfield.list_videos()
+
+# ---------------------------------------------------------------------------
 # Token calculator — costs in ZAR
 # ---------------------------------------------------------------------------
 # ZAR exchange rate approximation (updated manually)
@@ -282,6 +339,63 @@ async def calculate_tokens(req: TokenCalcRequest):
         "total_cost_zar": round(total_cost_usd * USD_TO_ZAR, 2),
         "local": pricing["local"],
     }
+
+# ---------------------------------------------------------------------------
+# Task Board — Kanban CRUD
+# ---------------------------------------------------------------------------
+@app.get("/api/tasks")
+async def list_tasks(column: Optional[str] = None):
+    tasks = list(TASK_BOARD.values())
+    if column:
+        tasks = [t for t in tasks if t["column"] == column]
+    return {"tasks": tasks}
+
+@app.post("/api/tasks")
+async def create_task(req: TaskBoardItem):
+    task = _new_task(req.title, req.agent, req.priority, req.column, req.type)
+    return task
+
+@app.patch("/api/tasks/{task_id}")
+async def update_task(task_id: str, req: TaskBoardUpdate):
+    task = TASK_BOARD.get(task_id)
+    if not task:
+        raise HTTPException(404, f"Task '{task_id}' not found")
+    for field in ["title", "agent", "priority", "column", "type"]:
+        val = getattr(req, field, None)
+        if val is not None:
+            task[field] = val
+    return task
+
+@app.delete("/api/tasks/{task_id}")
+async def delete_task(task_id: str):
+    if task_id not in TASK_BOARD:
+        raise HTTPException(404, f"Task '{task_id}' not found")
+    del TASK_BOARD[task_id]
+    return {"deleted": task_id}
+
+@app.post("/api/tasks/{task_id}/execute")
+async def execute_task(task_id: str):
+    """Move task to BUSY, run its agent, then move to DONE."""
+    task = TASK_BOARD.get(task_id)
+    if not task:
+        raise HTTPException(404, f"Task '{task_id}' not found")
+    agent_key = task.get("agent", "").lower().replace("agent", "").strip()
+    # Try to match agent key
+    agent = AGENTS.get(agent_key)
+    if not agent:
+        # Try fuzzy match
+        for k, v in AGENTS.items():
+            if k in agent_key or agent_key in k or agent_key in v.name.lower():
+                agent = v
+                agent_key = k
+                break
+    if not agent:
+        raise HTTPException(400, f"No agent matched for '{task.get('agent')}'")
+
+    task["column"] = "BUSY"
+    result = await agent.execute(task["title"])
+    task["column"] = "DONE"
+    return {"task": task, "result": result}
 
 # ---------------------------------------------------------------------------
 # Firecrawl — web scraping & intelligence

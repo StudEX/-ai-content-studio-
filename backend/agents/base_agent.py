@@ -1,14 +1,19 @@
-"""Base agent class — all 9 Naledi agents inherit from this."""
+"""Base agent class — all 9 Naledi agents inherit from this.
+Each agent gets a Claude AI brain via the Anthropic API."""
 
 from datetime import datetime, timezone, timedelta
+from services.claude_service import ClaudeService
 
 SAST = timezone(timedelta(hours=2))
+
+claude = ClaudeService()
 
 
 class BaseAgent:
     name: str = "BaseAgent"
     description: str = "Base agent"
-    status: str = "idle"  # idle | working | error
+    system_prompt: str = "You are a helpful marketing AI assistant for Studex Meat."
+    status: str = "idle"
     _queue: list[dict] = []
 
     @property
@@ -30,4 +35,5 @@ class BaseAgent:
             return {"agent": self.name, "error": str(e)}
 
     async def _run(self, task: str) -> str:
-        raise NotImplementedError
+        """Default: send task to Claude with agent's system prompt."""
+        return await claude.generate(self.system_prompt, task)

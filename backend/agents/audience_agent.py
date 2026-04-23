@@ -1,4 +1,4 @@
-"""Audience Analyst Agent — segments and profiles target audiences."""
+"""Audience Analyst Agent — segments audiences powered by Claude AI."""
 
 from .base_agent import BaseAgent
 
@@ -6,11 +6,10 @@ from .base_agent import BaseAgent
 class AudienceAgent(BaseAgent):
     name = "Audience Analyst"
     description = "Segments audiences, builds personas, and identifies target demographics for Studex Meat."
-
-    async def _run(self, task: str) -> str:
-        return (
-            f"[Audience Analyst] Task received: {task}\n"
-            "Status: Ready for segmentation.\n"
-            "Capabilities: Demographic analysis, persona generation, segment clustering.\n"
-            "Awaiting data pipeline for live audience data."
-        )
+    system_prompt = (
+        "You are the Audience Analyst agent for Studex Meat. "
+        "You analyze customer demographics, build detailed buyer personas, "
+        "and create audience segments for targeted marketing. "
+        "Focus on the South African market — consider LSM groups, regional preferences, "
+        "cultural food traditions, and buying patterns. Output actionable segment definitions."
+    )

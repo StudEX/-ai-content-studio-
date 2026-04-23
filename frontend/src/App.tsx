@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { Terminal, Users, Box, Calculator } from 'lucide-react'
+import { Terminal, Users, Box, Calculator, Globe } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: Terminal, label: 'Command Shell' },
   { to: '/agents', icon: Users, label: 'Agent Board' },
   { to: '/models', icon: Box, label: 'Models' },
   { to: '/tokens', icon: Calculator, label: 'Token Calc' },
+  { to: '/tumelo', icon: Globe, label: 'Tumelo.com' },
 ]
 
 export default function App() {

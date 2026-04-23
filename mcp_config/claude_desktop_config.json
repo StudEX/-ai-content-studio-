@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "naledi-platform": {
+      "command": "python",
+      "args": ["-m", "backend.mcp.server"],
+      "cwd": "/Users/project2571/naledi-platform",
+      "env": {
+        "NALEDI_API_URL": "http://localhost:8000",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "META_APP_ID": "${META_APP_ID}",
+        "META_APP_SECRET": "${META_APP_SECRET}",
+        "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
+        "INSTAGRAM_BUSINESS_ID": "${INSTAGRAM_BUSINESS_ID}",
+        "FACEBOOK_PAGE_ID": "${FACEBOOK_PAGE_ID}",
+        "GOOGLE_ADS_CLIENT_ID": "${GOOGLE_ADS_CLIENT_ID}",
+        "GOOGLE_ADS_CLIENT_SECRET": "${GOOGLE_ADS_CLIENT_SECRET}",
+        "GOOGLE_ADS_DEVELOPER_TOKEN": "${GOOGLE_ADS_DEVELOPER_TOKEN}",
+        "WHATSAPP_PHONE_NUMBER_ID": "${WHATSAPP_PHONE_NUMBER_ID}",
+        "WHATSAPP_ACCESS_TOKEN": "${WHATSAPP_ACCESS_TOKEN}",
+        "OBSIDIAN_VAULT_PATH": "/Users/project2571/studex-vault"
+      }
+    }
+  }
+}
